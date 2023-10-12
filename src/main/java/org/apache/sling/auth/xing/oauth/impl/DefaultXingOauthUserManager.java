@@ -18,22 +18,12 @@
  */
 package org.apache.sling.auth.xing.oauth.impl;
 
-import java.util.Dictionary;
-
 import javax.jcr.Credentials;
 import javax.jcr.RepositoryException;
 import javax.jcr.Session;
 import javax.jcr.Value;
 import javax.jcr.ValueFactory;
 
-import org.apache.felix.scr.annotations.Activate;
-import org.apache.felix.scr.annotations.Component;
-import org.apache.felix.scr.annotations.Deactivate;
-import org.apache.felix.scr.annotations.Modified;
-import org.apache.felix.scr.annotations.Properties;
-import org.apache.felix.scr.annotations.Property;
-import org.apache.felix.scr.annotations.Reference;
-import org.apache.felix.scr.annotations.Service;
 import org.apache.jackrabbit.api.security.user.User;
 import org.apache.jackrabbit.api.security.user.UserManager;
 import org.apache.sling.auth.xing.api.AbstractXingUserManager;
@@ -41,25 +31,27 @@ import org.apache.sling.auth.xing.api.XingUser;
 import org.apache.sling.auth.xing.oauth.XingOauth;
 import org.apache.sling.auth.xing.oauth.XingOauthUserManager;
 import org.apache.sling.auth.xing.oauth.XingOauthUtil;
-import org.apache.sling.commons.osgi.PropertiesUtil;
 import org.apache.sling.jcr.api.SlingRepository;
-import org.osgi.framework.Constants;
 import org.osgi.service.component.ComponentContext;
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Deactivate;
+import org.osgi.service.component.annotations.Modified;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.propertytypes.ServiceDescription;
+import org.osgi.service.component.propertytypes.ServiceRanking;
+import org.osgi.service.component.propertytypes.ServiceVendor;
+import org.osgi.service.metatype.annotations.AttributeDefinition;
+import org.osgi.service.metatype.annotations.Designate;
+import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@Component(
-    label = "Apache Sling Authentication XING OAuth “Default User Manager”",
-    description = "Default User Manager for Sling Authentication XING OAuth",
-    immediate = true,
-    metatype = true
-)
-@Service
-@Properties({
-    @Property(name = Constants.SERVICE_VENDOR, value = XingOauth.SERVICE_VENDOR),
-    @Property(name = Constants.SERVICE_DESCRIPTION, value = "Default User Manager for Sling Authentication XING OAuth"),
-    @Property(name = Constants.SERVICE_RANKING, intValue = 0, propertyPrivate = false)
-})
+@Component
+@ServiceRanking(0)
+@ServiceVendor(XingOauth.SERVICE_VENDOR)
+@ServiceDescription("Default User Manager for Sling Authentication XING OAuth")
+@Designate(ocd = DefaultXingOauthUserManager.Config.class)
 public class DefaultXingOauthUserManager extends AbstractXingUserManager implements XingOauthUserManager {
 
     @Reference
@@ -69,11 +61,16 @@ public class DefaultXingOauthUserManager extends AbstractXingUserManager impleme
 
     private static final String LASTNAME_PROPERTY = "lastname";
 
-    @Property(boolValue = DEFAULT_AUTO_CREATE_USER)
-    private static final String AUTO_CREATE_USER_PARAMETER = "org.apache.sling.auth.xing.oauth.impl.DefaultXingOauthUserManager.user.create.auto";
+    @ObjectClassDefinition(name = "Apache Sling Authentication XING OAuth “Default User Manager”",
+            description = "Default User Manager for Sling Authentication XING OAuth")
+    public @interface Config {
 
-    @Property(boolValue = DEFAULT_AUTO_UPDATE_USER)
-    private static final String AUTO_UPDATE_USER_PARAMETER = "org.apache.sling.auth.xing.oauth.impl.DefaultXingOauthUserManager.user.update.auto";
+        @AttributeDefinition
+        boolean org_apache_sling_auth_xing_oauth_impl_DefaultXingOauthUserManager_user_create_auto() default DEFAULT_AUTO_CREATE_USER; //NOSONAR
+
+        @AttributeDefinition
+        boolean org_apache_sling_auth_xing_oauth_impl_DefaultXingOauthUserManager_user_update_auto() default DEFAULT_AUTO_UPDATE_USER; //NOSONAR
+    }
 
     private final Logger logger = LoggerFactory.getLogger(DefaultXingOauthUserManager.class);
 
@@ -81,15 +78,15 @@ public class DefaultXingOauthUserManager extends AbstractXingUserManager impleme
     }
 
     @Activate
-    protected void activate(final ComponentContext componentContext) {
+    protected void activate(final Config config) {
         logger.debug("activate");
-        configure(componentContext);
+        configure(config);
     }
 
     @Modified
-    protected void modified(final ComponentContext componentContext) {
+    protected void modified(final Config config) {
         logger.debug("modified");
-        configure(componentContext);
+        configure(config);
     }
 
     @Deactivate
@@ -101,10 +98,9 @@ public class DefaultXingOauthUserManager extends AbstractXingUserManager impleme
         }
     }
 
-    protected synchronized void configure(final ComponentContext componentContext) {
-        final Dictionary properties = componentContext.getProperties();
-        autoCreateUser = PropertiesUtil.toBoolean(properties.get(AUTO_CREATE_USER_PARAMETER), DEFAULT_AUTO_CREATE_USER);
-        autoUpdateUser = PropertiesUtil.toBoolean(properties.get(AUTO_UPDATE_USER_PARAMETER), DEFAULT_AUTO_UPDATE_USER);
+    protected synchronized void configure(final Config config) {
+        autoCreateUser = config.org_apache_sling_auth_xing_oauth_impl_DefaultXingOauthUserManager_user_create_auto();
+        autoUpdateUser = config.org_apache_sling_auth_xing_oauth_impl_DefaultXingOauthUserManager_user_update_auto();
     }
 
     @Override
