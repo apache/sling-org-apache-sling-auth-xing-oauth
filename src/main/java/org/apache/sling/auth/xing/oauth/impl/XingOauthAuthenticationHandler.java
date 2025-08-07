@@ -19,7 +19,6 @@
 package org.apache.sling.auth.xing.oauth.impl;
 
 import java.io.IOException;
-import java.util.Dictionary;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -29,23 +28,23 @@ import com.google.gson.FieldNamingPolicy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import org.apache.commons.lang.StringUtils;
-import org.apache.felix.scr.annotations.Activate;
-import org.apache.felix.scr.annotations.Component;
-import org.apache.felix.scr.annotations.Deactivate;
-import org.apache.felix.scr.annotations.Modified;
-import org.apache.felix.scr.annotations.Properties;
-import org.apache.felix.scr.annotations.Property;
-import org.apache.felix.scr.annotations.PropertyUnbounded;
-import org.apache.felix.scr.annotations.Service;
 import org.apache.sling.auth.core.spi.AuthenticationHandler;
 import org.apache.sling.auth.core.spi.AuthenticationInfo;
 import org.apache.sling.auth.core.spi.DefaultAuthenticationFeedbackHandler;
 import org.apache.sling.auth.xing.api.XingUser;
 import org.apache.sling.auth.xing.api.users.Users;
 import org.apache.sling.auth.xing.oauth.XingOauth;
-import org.apache.sling.commons.osgi.PropertiesUtil;
-import org.osgi.framework.Constants;
 import org.osgi.service.component.ComponentContext;
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Deactivate;
+import org.osgi.service.component.annotations.Modified;
+import org.osgi.service.component.propertytypes.ServiceDescription;
+import org.osgi.service.component.propertytypes.ServiceRanking;
+import org.osgi.service.component.propertytypes.ServiceVendor;
+import org.osgi.service.metatype.annotations.AttributeDefinition;
+import org.osgi.service.metatype.annotations.Designate;
+import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 import org.scribe.builder.ServiceBuilder;
 import org.scribe.builder.api.XingApi;
 import org.scribe.model.OAuthConstants;
@@ -59,19 +58,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Component(
-    label = "Apache Sling Authentication XING OAuth “Authentication Handler”",
-    description = "Authentication Handler for Sling Authentication XING OAuth",
-    immediate = true,
-    metatype = true
-)
-@Service
-@Properties({
-    @Property(name = Constants.SERVICE_VENDOR, value = XingOauth.SERVICE_VENDOR),
-    @Property(name = Constants.SERVICE_DESCRIPTION, value = "Authentication Handler for Sling Authentication XING OAuth"),
-    @Property(name = Constants.SERVICE_RANKING, intValue = 0, propertyPrivate = false),
-    @Property(name = AuthenticationHandler.PATH_PROPERTY, value = "/", unbounded = PropertyUnbounded.ARRAY),
-    @Property(name = AuthenticationHandler.TYPE_PROPERTY, value = XingOauth.AUTH_TYPE, propertyPrivate = true)
-})
+        immediate = true,
+        property = {
+                AuthenticationHandler.PATH_PROPERTY + "=/",
+                AuthenticationHandler.TYPE_PROPERTY + "=" + XingOauth.AUTH_TYPE
+        })
+@ServiceRanking(0)
+@ServiceVendor(XingOauth.SERVICE_VENDOR)
+@ServiceDescription("Authentication Handler for Sling Authentication XING OAuth")
+@Designate(ocd = XingOauthAuthenticationHandler.Config.class)
 public class XingOauthAuthenticationHandler extends DefaultAuthenticationFeedbackHandler implements AuthenticationHandler {
 
     private OAuthService oAuthService;
@@ -86,17 +81,22 @@ public class XingOauthAuthenticationHandler extends DefaultAuthenticationFeedbac
 
     private static final String DEFAULT_USERS_ME_URL = "https://api.xing.com/v1/users/me.json";
 
-    @Property(value = "")
-    private static final String CONSUMER_KEY_PARAMETER = "org.apache.sling.auth.xing.oauth.impl.XingOauthAuthenticationHandler.consumerKey";
+    @ObjectClassDefinition(name = "Apache Sling Authentication XING OAuth “Authentication Handler",
+            description = "Authentication Handler for Sling Authentication XING OAuth")
+    public @interface Config {
 
-    @Property(value = "")
-    private static final String CONSUMER_SECRET_PARAMETER = "org.apache.sling.auth.xing.oauth.impl.XingOauthAuthenticationHandler.consumerSecret";
+        @AttributeDefinition
+        String org_apache_sling_auth_xing_oauth_impl_XingOauthAuthenticationHandler_consumerKey() default ""; //NOSONAR
 
-    @Property(value = "")
-    private static final String CALLBACK_URL_PARAMETER = "org.apache.sling.auth.xing.oauth.impl.XingOauthAuthenticationHandler.callbackUrl";
+        @AttributeDefinition
+        String org_apache_sling_auth_xing_oauth_impl_XingOauthAuthenticationHandler_consumerSecret() default ""; //NOSONAR
 
-    @Property(value = DEFAULT_USERS_ME_URL)
-    private static final String USERS_ME_URL_PARAMETER = "org.apache.sling.auth.xing.oauth.impl.XingOauthAuthenticationHandler.usersMeUrl";
+        @AttributeDefinition
+        String org_apache_sling_auth_xing_oauth_impl_XingOauthAuthenticationHandler_callbackUrl() default ""; //NOSONAR
+
+        @AttributeDefinition
+        String org_apache_sling_auth_xing_oauth_impl_XingOauthAuthenticationHandler_usersMeUrl() default DEFAULT_USERS_ME_URL; //NOSONAR
+    }
 
     public static final String USER_SESSION_ATTRIBUTE_NAME = "xing-user";
 
@@ -106,15 +106,15 @@ public class XingOauthAuthenticationHandler extends DefaultAuthenticationFeedbac
     }
 
     @Activate
-    protected void activate(final ComponentContext componentContext) {
+    protected void activate(final Config config) {
         logger.debug("activate");
-        configure(componentContext);
+        configure(config);
     }
 
     @Modified
-    protected void modified(final ComponentContext componentContext) {
+    protected void modified(final Config config) {
         logger.debug("modified");
-        configure(componentContext);
+        configure(config);
     }
 
     @Deactivate
@@ -122,12 +122,11 @@ public class XingOauthAuthenticationHandler extends DefaultAuthenticationFeedbac
         logger.debug("deactivate");
     }
 
-    protected synchronized void configure(final ComponentContext componentContext) {
-        final Dictionary properties = componentContext.getProperties();
-        consumerKey = PropertiesUtil.toString(properties.get(CONSUMER_KEY_PARAMETER), "").trim();
-        consumerSecret = PropertiesUtil.toString(properties.get(CONSUMER_SECRET_PARAMETER), "").trim();
-        callbackUrl = PropertiesUtil.toString(properties.get(CALLBACK_URL_PARAMETER), "").trim();
-        usersMeUrl = PropertiesUtil.toString(properties.get(USERS_ME_URL_PARAMETER), DEFAULT_USERS_ME_URL).trim();
+    protected synchronized void configure(final Config config) {
+        consumerKey = config.org_apache_sling_auth_xing_oauth_impl_XingOauthAuthenticationHandler_consumerKey().trim();
+        consumerSecret = config.org_apache_sling_auth_xing_oauth_impl_XingOauthAuthenticationHandler_consumerSecret().trim();
+        callbackUrl = config.org_apache_sling_auth_xing_oauth_impl_XingOauthAuthenticationHandler_callbackUrl().trim();
+        usersMeUrl = config.org_apache_sling_auth_xing_oauth_impl_XingOauthAuthenticationHandler_usersMeUrl().trim();
 
         if (StringUtils.isEmpty(consumerKey)) {
             logger.warn("configured consumer key is empty");
